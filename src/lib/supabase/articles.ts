@@ -2,45 +2,41 @@ import { createPublicClient } from './public'
 import { cachedQuery, articlesCache, categoriesCache, generateCacheKey } from './cache'
 
 export async function getArticlesByCategory(categorySlug: string) {
-  const cacheKey = generateCacheKey('articles_by_category', { categorySlug })
+  const supabase = createPublicClient()
 
-  return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = createPublicClient()
+  // Get category ID first
+  const { data: category } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('slug', categorySlug)
+    .single()
 
-    // Get category ID and articles in parallel for better performance
-    const [categoryResult, articlesResult] = await Promise.all([
-      supabase.from('categories').select('id').eq('slug', categorySlug).single(),
-      supabase
-        .from('articles')
-        .select(`
-          *,
-          category:categories(name, slug)
-        `)
-        .eq('status', 'published')
-        .order('published_at', { ascending: false })
-    ])
+  if (!category) {
+    return []
+  }
 
-    if (!categoryResult.data) {
-      return []
-    }
+  // Get articles filtered by category_id on server side (no cache)
+  const { data: articles } = await supabase
+    .from('articles')
+    .select(`
+      *,
+      category:categories(name, slug)
+    `)
+    .eq('status', 'published')
+    .eq('category_id', category.id)
+    .order('published_at', { ascending: false })
 
-    // Filter articles by category_id on the client side (faster than a second query)
-    const articles = articlesResult.data?.filter(
-      (article: any) => article.category_id === categoryResult.data.id
-    ) || []
+  if (!articles || articles.length === 0) {
+    return []
+  }
 
-    if (articles.length === 0) {
-      return []
-    }
-
-    // Map Supabase field names to match Article type
-    return articles.map((article: any) => ({
-      ...article,
-      publishedAt: article.published_at,
-      updatedAt: article.updated_at,
-      image: article.featured_image
-    }))
-  })
+  // Map Supabase field names to match Article type
+  return articles.map((article: any) => ({
+    ...article,
+    publishedAt: article.published_at,
+    updatedAt: article.updated_at,
+    image: article.featured_image
+  }))
 }
 
 export async function getDossiers() {

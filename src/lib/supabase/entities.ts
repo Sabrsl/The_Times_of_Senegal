@@ -226,6 +226,32 @@ export async function getArticlesByEvent(eventId: string) {
 }
 
 /**
+ * Get dossiers related to a person with caching
+ */
+export async function getDossiersByPerson(personId: string) {
+  const cacheKey = generateCacheKey('dossiers_by_person', { personId })
+
+  return cachedQuery(entitiesCache, cacheKey, async () => {
+    const supabase = createPublicClient()
+
+    const { data, error } = await supabase
+      .from('dossier_people')
+      .select(`
+        dossiers(
+          *
+        )
+      `)
+      .eq('person_id', personId)
+
+    if (error || !data) {
+      return []
+    }
+
+    return data.map((item: any) => item.dossiers)
+  })
+}
+
+/**
  * Get all people with caching
  */
 export async function getAllPeople() {

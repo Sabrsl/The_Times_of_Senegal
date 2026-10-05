@@ -619,6 +619,6 @@ CREATE POLICY "Super admins can delete audit logs" ON audit_logs
   FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM profiles
-      WHERE id = auth.uid() AND role = 'super_admin'
+      WHERE id = auth.uid() AND role IN ('super_admin')
     )
   );

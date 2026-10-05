@@ -3,7 +3,7 @@ import { Footer } from '@/components/Footer'
 import { ArticleCard } from '@/components/ArticleCard'
 import { getArticlesByCategory } from '@/lib/supabase/articles'
 
-export const revalidate = 300
+export const revalidate = 0
 
 export default async function EconomiePage() {
   const articles = await getArticlesByCategory('economie')

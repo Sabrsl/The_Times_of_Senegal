@@ -11,7 +11,7 @@ import { createPublicClient } from '@/lib/supabase/public'
  * Régénération de la page toutes les 60 s (ISR) :
  * la home reste rapide et le contenu se met à jour sans redéploiement.
  */
-export const revalidate = 60
+export const revalidate = 0
 
 const ARTICLES_LIMIT = 20
 const BENTO_COUNT = 8

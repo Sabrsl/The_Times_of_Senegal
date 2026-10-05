@@ -14,7 +14,7 @@ import { createPublicClient } from '@/lib/supabase/public'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
-export const revalidate = 300
+export const revalidate = 0
 
 const TIME_ZONE = 'Africa/Dakar'
 
@@ -166,7 +166,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             s.source_type === 'media' ? 'media' :
             s.source_type === 'institution' ? 'organization' : 'other',
       url: s.url || undefined,
-      description: s.publisher || ''
+      description: s.publisher || '',
+      publishedAt: s.published_at || new Date().toISOString()
     })) || []
   }
 
@@ -293,6 +294,30 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           <SourceList sources={formattedArticle.sources} />
         )}
 
+        {/* Related Articles */}
+        {relatedArticles.length > 0 && (
+          <section className="mt-6 border-t border-[var(--border)] pt-4">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">
+              Articles liés
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-1">
+              {relatedArticles.map((relatedArticle) => (
+                <ArticleCard
+                  key={relatedArticle.id}
+                  article={{
+                    ...relatedArticle,
+                    content: '',
+                    publishedAt: relatedArticle.published_at,
+                    sources: [],
+                    category: relatedArticle.category?.[0] || ''
+                  }}
+                  variant="compact"
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Entities & Classifications */}
         {entityGroups.length > 0 && (
           <section className="mt-6 border-t border-[var(--border)] pt-4">
@@ -332,30 +357,6 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                     })}
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Related Articles */}
-        {relatedArticles.length > 0 && (
-          <section className="mt-6 border-t border-[var(--border)] pt-4">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">
-              Articles liés
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-1">
-              {relatedArticles.map((relatedArticle) => (
-                <ArticleCard 
-                  key={relatedArticle.id} 
-                  article={{
-                    ...relatedArticle,
-                    content: '',
-                    publishedAt: relatedArticle.published_at,
-                    sources: [],
-                    category: relatedArticle.category?.[0] || ''
-                  }} 
-                  variant="compact" 
-                />
               ))}
             </div>
           </section>

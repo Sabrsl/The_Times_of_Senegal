@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { AdminLayout } from '@/components/admin/AdminLayout'
-import { Search, Shield, User as UserIcon } from 'lucide-react'
+import { Search, Shield, User as UserIcon, Plus, Trash2, X } from 'lucide-react'
+import { createUser, deleteUser, updateUserRole } from '@/app/actions/users'
 
 interface Profile {
   id: string
@@ -21,6 +22,15 @@ export default function AdminUsers() {
   const [users, setUsers] = useState<Profile[]>([])
   const [search, setSearch] = useState('')
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addingUser, setAddingUser] = useState(false)
+  const [newUser, setNewUser] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    role: 'user',
+    password: '',
+  })
 
   useEffect(() => {
     loadUsers()
@@ -70,19 +80,73 @@ export default function AdminUsers() {
     }
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId)
+      const result = await updateUserRole(userId, newRole)
 
-      if (error) {
-        console.error('Error updating user role:', error)
-        alert('Erreur lors de la modification du rôle')
+      if (!result.success) {
+        alert('Erreur lors de la modification du rôle: ' + result.error)
       } else {
         loadUsers()
       }
     } catch (error) {
       console.error('Error updating user role:', error)
+    }
+  }
+
+  const handleAddUser = async () => {
+    if (!newUser.email || !newUser.password || !newUser.first_name || !newUser.last_name) {
+      alert('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+
+    setAddingUser(true)
+
+    try {
+      const result = await createUser(newUser)
+
+      if (!result.success) {
+        alert('Erreur lors de la création de l\'utilisateur: ' + result.error)
+      } else {
+        alert('Utilisateur créé avec succès')
+        setShowAddModal(false)
+        setNewUser({
+          email: '',
+          first_name: '',
+          last_name: '',
+          role: 'user',
+          password: '',
+        })
+        loadUsers()
+      }
+    } catch (error) {
+      console.error('Error adding user:', error)
+      alert('Erreur lors de l\'ajout de l\'utilisateur')
+    } finally {
+      setAddingUser(false)
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (currentUserRole !== 'super_admin') {
+      alert('Seul un super_admin peut supprimer des utilisateurs')
+      return
+    }
+
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) {
+      return
+    }
+
+    try {
+      const result = await deleteUser(userId)
+
+      if (!result.success) {
+        alert('Erreur lors de la suppression: ' + result.error)
+      } else {
+        alert('Utilisateur supprimé avec succès')
+        loadUsers()
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Erreur lors de la suppression')
     }
   }
 
@@ -148,6 +212,16 @@ export default function AdminUsers() {
               Gérer les utilisateurs et leurs rôles
             </p>
           </div>
+          {currentUserRole === 'super_admin' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] text-sm font-medium rounded-sm hover:bg-[var(--accent-hover)] transition-colors"
+              style={{ fontSize: '14px' }}
+            >
+              <Plus size={16} />
+              Ajouter un utilisateur
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -215,24 +289,35 @@ export default function AdminUsers() {
                       {formatDate(user.created_at)}
                     </td>
                     <td className="p-4">
-                      {currentUserRole === 'super_admin' && user.role !== 'super_admin' && (
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded-sm text-xs focus:outline-none focus:border-[var(--border-strong)]"
-                          style={{ fontSize: '11px' }}
-                        >
-                          <option value="user">Utilisateur</option>
-                          <option value="editor">Éditeur</option>
-                          <option value="admin">Admin</option>
-                          <option value="super_admin">Super Admin</option>
-                        </select>
-                      )}
-                      {currentUserRole !== 'super_admin' && (
-                        <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '11px' }}>
-                          Modification non autorisée
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {currentUserRole === 'super_admin' && user.role !== 'super_admin' && (
+                          <select
+                            value={user.role}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded-sm text-xs focus:outline-none focus:border-[var(--border-strong)]"
+                            style={{ fontSize: '11px' }}
+                          >
+                            <option value="user">Utilisateur</option>
+                            <option value="editor">Éditeur</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                          </select>
+                        )}
+                        {currentUserRole === 'super_admin' && user.role !== 'super_admin' && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="p-1 text-[var(--text-error)] hover:text-[var(--text-primary)] transition-colors"
+                            title="Supprimer l'utilisateur"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                        {currentUserRole !== 'super_admin' && (
+                          <span className="text-xs text-[var(--text-muted)]" style={{ fontSize: '11px' }}>
+                            Modification non autorisée
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -251,6 +336,108 @@ export default function AdminUsers() {
             </div>
           )}
         </div>
+
+        {/* Add User Modal */}
+        {showAddModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-[var(--surface)] border border-[var(--border)] p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-[var(--text-primary)]" style={{ fontSize: '18px' }}>
+                  Ajouter un utilisateur
+                </h2>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                    style={{ fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                    Mot de passe *
+                  </label>
+                  <input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                    style={{ fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                    Prénom *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.first_name}
+                    onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                    style={{ fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                    Nom *
+                  </label>
+                  <input
+                    type="text"
+                    value={newUser.last_name}
+                    onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                    style={{ fontSize: '14px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                    Rôle *
+                  </label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                    style={{ fontSize: '14px' }}
+                  >
+                    <option value="user">Utilisateur</option>
+                    <option value="editor">Éditeur</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] text-sm font-medium rounded-sm hover:bg-[var(--surface-muted)] transition-colors"
+                  style={{ fontSize: '14px' }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleAddUser}
+                  disabled={addingUser}
+                  className="flex-1 px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] text-sm font-medium rounded-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+                  style={{ fontSize: '14px' }}
+                >
+                  {addingUser ? 'Création...' : 'Créer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   )

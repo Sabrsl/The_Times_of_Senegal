@@ -26,8 +26,9 @@ export default function AdminDossierEdit() {
     title: '',
     slug: '',
     description: '',
-    cover_image: '',
-    status: 'draft',
+    featured_image: '',
+    is_visible: true,
+    position: 0,
   })
   const [availableArticles, setAvailableArticles] = useState<Article[]>([])
   const [selectedArticles, setSelectedArticles] = useState<string[]>([])
@@ -64,13 +65,14 @@ export default function AdminDossierEdit() {
             title: dossierData.title || '',
             slug: dossierData.slug || '',
             description: dossierData.description || '',
-            cover_image: dossierData.cover_image || '',
-            status: dossierData.status || 'draft',
+            featured_image: dossierData.featured_image || '',
+            is_visible: dossierData.is_visible ?? true,
+            position: dossierData.position ?? 0,
           })
 
           // Load dossier articles
           const { data: dossierArticles } = await supabase
-            .from('dossier_articles')
+            .from('article_dossiers')
             .select('article_id')
             .eq('dossier_id', dossierId)
             .order('position')
@@ -114,9 +116,12 @@ export default function AdminDossierEdit() {
         title: formData.title,
         slug: formData.slug,
         description: formData.description,
-        cover_image: formData.cover_image,
-        status: formData.status,
+        featured_image: formData.featured_image,
+        is_visible: formData.is_visible,
+        position: formData.position,
       }
+
+      console.log('[Admin Dossier] Saving dossier data:', dossierData)
 
       let error
       let newDossierId = dossierId
@@ -124,35 +129,40 @@ export default function AdminDossierEdit() {
       if (isNew) {
         const result = await supabase.from('dossiers').insert(dossierData).select()
         error = result.error
+        console.log('[Admin Dossier] Insert result:', result)
         if (!error && result.data) {
           newDossierId = result.data[0].id
         }
       } else {
         const result = await supabase.from('dossiers').update(dossierData).eq('id', dossierId)
         error = result.error
+        console.log('[Admin Dossier] Update result:', result)
       }
 
       if (error) {
-        console.error('Error saving dossier:', error)
-        alert('Erreur lors de la sauvegarde du dossier')
+        console.error('[Admin Dossier] Error saving dossier:', error)
+        alert(`Erreur lors de la sauvegarde du dossier: ${error.message}`)
         setSaving(false)
         return
       }
 
       // Save article associations
       if (newDossierId) {
+        console.log('[Admin Dossier] Saving article associations for dossier:', newDossierId)
         // Delete existing associations
-        await supabase.from('dossier_articles').delete().eq('dossier_id', newDossierId)
+        await supabase.from('article_dossiers').delete().eq('dossier_id', newDossierId)
 
         // Insert new associations
         if (selectedArticles.length > 0) {
           const associations = selectedArticles.map((articleId, index) => ({
             dossier_id: newDossierId,
             article_id: articleId,
-            position: index,
           }))
 
-          await supabase.from('dossier_articles').insert(associations)
+          const result = await supabase.from('article_dossiers').insert(associations)
+          if (result.error) {
+            console.error('[Admin Dossier] Error saving associations:', result.error)
+          }
         }
       }
 
@@ -161,8 +171,8 @@ export default function AdminDossierEdit() {
         router.replace(`/admin/dossiers/${newDossierId}`)
       }
     } catch (error) {
-      console.error('Error saving dossier:', error)
-      alert('Erreur lors de la sauvegarde du dossier')
+      console.error('[Admin Dossier] Unexpected error:', error)
+      alert(`Erreur lors de la sauvegarde du dossier: ${error}`)
     } finally {
       setSaving(false)
     }
@@ -315,51 +325,63 @@ export default function AdminDossierEdit() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Status */}
+            {/* Visibility */}
             <div className="bg-[var(--surface)] border border-[var(--border)] p-6 space-y-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]" style={{ fontSize: '14px' }}>
                 Publication
               </h3>
               <div>
-                <label htmlFor="status" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
-                  Statut
+                <label htmlFor="is_visible" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                  Visibilité
                 </label>
                 <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  id="is_visible"
+                  value={formData.is_visible ? 'true' : 'false'}
+                  onChange={(e) => setFormData({ ...formData, is_visible: e.target.value === 'true' })}
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
                   style={{ fontSize: '14px' }}
                 >
-                  <option value="draft">Brouillon</option>
-                  <option value="published">Publié</option>
-                  <option value="archived">Archivé</option>
+                  <option value="true">Visible</option>
+                  <option value="false">Masqué</option>
                 </select>
+              </div>
+              <div>
+                <label htmlFor="position" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                  Position
+                </label>
+                <input
+                  type="number"
+                  id="position"
+                  value={formData.position}
+                  onChange={(e) => setFormData({ ...formData, position: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
+                  style={{ fontSize: '14px' }}
+                />
               </div>
             </div>
 
-            {/* Cover Image */}
+            {/* Featured Image */}
             <div className="bg-[var(--surface)] border border-[var(--border)] p-6 space-y-4">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]" style={{ fontSize: '14px' }}>
                 Image de couverture
               </h3>
               <div>
-                <label htmlFor="cover_image" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                <label htmlFor="featured_image" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
                   URL de l'image
                 </label>
                 <input
                   type="text"
-                  id="cover_image"
-                  value={formData.cover_image}
-                  onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
+                  id="featured_image"
+                  value={formData.featured_image}
+                  onChange={(e) => setFormData({ ...formData, featured_image: e.target.value })}
                   className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
                   style={{ fontSize: '14px' }}
                   placeholder="https://..."
                 />
               </div>
-              {formData.cover_image && (
+              {formData.featured_image && (
                 <div className="aspect-video bg-[var(--background)] border border-[var(--border)] overflow-hidden">
-                  <img src={formData.cover_image} alt="Preview" className="w-full h-full object-cover" />
+                  <img src={formData.featured_image} alt="Preview" className="w-full h-full object-cover" />
                 </div>
               )}
             </div>

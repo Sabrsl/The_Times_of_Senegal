@@ -5,7 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 import { AdminLayout } from '@/components/admin/AdminLayout'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { Save, ArrowLeft } from 'lucide-react'
+import { Save, ArrowLeft, Trash2 } from 'lucide-react'
+
+interface Article {
+  id: string
+  title: string
+  slug: string
+}
 
 export default function AdminSourceEdit() {
   const router = useRouter()
@@ -16,6 +22,7 @@ export default function AdminSourceEdit() {
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     url: '',
@@ -23,6 +30,7 @@ export default function AdminSourceEdit() {
     source_type: 'other',
     published_at: '',
   })
+  const [linkedArticles, setLinkedArticles] = useState<Article[]>([])
 
   useEffect(() => {
     loadSource()
@@ -48,6 +56,16 @@ export default function AdminSourceEdit() {
           source_type: data.source_type || 'other',
           published_at: data.published_at ? data.published_at.split('T')[0] : '',
         })
+
+        // Load linked articles
+        const { data: articlesData } = await supabase
+          .from('article_sources')
+          .select('articles(id, title, slug)')
+          .eq('source_id', sourceId)
+
+        if (articlesData) {
+          setLinkedArticles(articlesData.map((a: any) => a.articles))
+        }
       }
     } catch (error) {
       console.error('Error loading source:', error)
@@ -93,6 +111,37 @@ export default function AdminSourceEdit() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!sourceId) return
+
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette source ? Cette action supprimera également les liens avec les articles.')) {
+      return
+    }
+
+    setDeleting(true)
+
+    try {
+      // Delete article_sources links first
+      await supabase.from('article_sources').delete().eq('source_id', sourceId)
+
+      // Delete the source
+      const { error } = await supabase.from('sources').delete().eq('id', sourceId)
+
+      if (error) {
+        console.error('Error deleting source:', error)
+        alert('Erreur lors de la suppression')
+      } else {
+        alert('Source supprimée avec succès')
+        router.push('/admin/sources')
+      }
+    } catch (error) {
+      console.error('Error deleting source:', error)
+      alert('Erreur lors de la suppression')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <AdminLayout>
@@ -125,15 +174,28 @@ export default function AdminSourceEdit() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] text-sm font-medium rounded-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
-            style={{ fontSize: '14px' }}
-          >
-            <Save size={16} />
-            {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-          </button>
+          <div className="flex items-center gap-2">
+            {!isNew && (
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-sm hover:bg-red-700 transition-colors disabled:opacity-50"
+                style={{ fontSize: '14px' }}
+              >
+                <Trash2 size={16} />
+                {deleting ? 'Suppression...' : 'Supprimer'}
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] text-sm font-medium rounded-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+              style={{ fontSize: '14px' }}
+            >
+              <Save size={16} />
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+            </button>
+          </div>
         </div>
 
         <div className="max-w-2xl bg-[var(--surface)] border border-[var(--border)] p-6 space-y-6">
@@ -215,6 +277,30 @@ export default function AdminSourceEdit() {
             />
           </div>
         </div>
+
+        {!isNew && linkedArticles.length > 0 && (
+          <div className="max-w-2xl bg-[var(--surface)] border border-[var(--border)] p-6 space-y-6">
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]" style={{ fontSize: '18px' }}>
+              Articles liés ({linkedArticles.length})
+            </h3>
+            <div className="space-y-2">
+              {linkedArticles.map((article) => (
+                <Link
+                  key={article.id}
+                  href={`/admin/articles/${article.id}`}
+                  className="block p-3 bg-[var(--background)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
+                >
+                  <p className="text-sm text-[var(--text-primary)]" style={{ fontSize: '14px' }}>
+                    {article.title}
+                  </p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1" style={{ fontSize: '12px' }}>
+                    {article.slug}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </AdminLayout>
   )

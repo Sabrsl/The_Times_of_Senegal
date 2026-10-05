@@ -26,6 +26,7 @@ export interface Source {
   type: 'government' | 'organization' | 'media' | 'official' | 'statistical' | 'other'
   url?: string
   description: string
+  publishedAt?: string
 }
 
 export interface EntityLink {

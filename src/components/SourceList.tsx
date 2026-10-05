@@ -14,6 +14,17 @@ const SOURCE_TYPE_LABELS: Record<Source['type'], string> = {
   other: 'Autre',
 }
 
+function formatAccessedDate(dateString: string | undefined): string {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
 function getSourceTypeLabel(type: Source['type']): string {
   return SOURCE_TYPE_LABELS[type] ?? type
 }
@@ -52,52 +63,50 @@ export function SourceList({ sources }: SourceListProps) {
         <span className="font-normal text-[var(--text-muted)]">({sources.length})</span>
       </h2>
 
-      <ol className="grid grid-cols-2 gap-x-4 gap-y-2 sm:gap-x-8">
+      <ol className="space-y-0">
         {sources.map((source, index) => {
           const link = parseSafeUrl(source.url)
 
           return (
-            <li key={source.id ?? index} className="flex min-w-0 gap-2 sm:gap-3">
+            <li key={source.id ?? index} className="flex gap-3">
               <span
                 aria-hidden="true"
-                className="w-5 shrink-0 pt-0.5 text-[11px] sm:w-6 tabular-nums text-[var(--text-muted)]"
+                className="shrink-0 text-sm font-medium text-[var(--text-muted)]"
               >
-                {String(index + 1).padStart(2, '0')}
+                {index + 1}.
               </span>
 
-              <div className="min-w-0 flex-1">
-                <p className="break-words text-sm font-medium leading-tight text-[var(--text-primary)]">
-                  {source.name}
-                </p>
-
-                <p className="text-xs leading-tight text-[var(--text-muted)]">
-                  {getSourceTypeLabel(source.type)}
-                </p>
-
-                {source.description && (
-                  <p className="break-words text-xs leading-tight text-[var(--text-secondary)]">
-                    {source.description}
-                  </p>
-                )}
-
-                {link && (
-                  <a
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="-ml-1 mt-0.5 inline-flex min-h-7 max-w-full items-center gap-1.5 rounded px-1 text-xs text-[var(--accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] sm:min-h-0 sm:py-0"
-                  >
-                    <ExternalLink size={12} aria-hidden="true" className="shrink-0" />
-                    <span className="truncate">
-                      <span className="hidden sm:inline">Voir la source · </span>
+              <div className="flex-1">
+                <p className="break-words text-sm leading-tight text-[var(--text-primary)]">
+                  {source.name && (
+                    <span className="font-medium">{source.name}</span>
+                  )}
+                  {source.name && (source.description || link || source.publishedAt) && ' - '}
+                  {source.type && (
+                    <span className="text-[var(--text-muted)]">({getSourceTypeLabel(source.type)})</span>
+                  )}
+                  {source.type && (source.description || link || source.publishedAt) && ' - '}
+                  {source.description && (
+                    <span>{source.description}</span>
+                  )}
+                  {source.description && link && ', '}
+                  {link && (
+                    <a
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-blue-400 hover:text-blue-500 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+                    >
                       {link.host}
-                    </span>
-                    <span className="sr-only">
-                      {' '}
-                      (s&apos;ouvre dans un nouvel onglet) — {source.name}
-                    </span>
-                  </a>
-                )}
+                    </a>
+                  )}
+                  {source.publishedAt && (
+                    <>
+                      {(source.description || link) && ', '}
+                      <span className="text-[var(--text-muted)]">consulté le {formatAccessedDate(source.publishedAt)}</span>
+                    </>
+                  )}
+                </p>
               </div>
             </li>
           )

@@ -46,13 +46,13 @@ export function EntityLayout({ title, subtitle, image, description, children, re
 
         {/* Related Articles */}
         {relatedArticles && relatedArticles.length > 0 && (
-          <section className="mb-8">
+          <section className="mt-12 mb-8">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide mb-4" style={{ fontSize: '12px' }}>
               Actualités liées
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {relatedArticles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
+                <ArticleCard key={article.id} article={article} variant="compact" />
               ))}
             </div>
           </section>

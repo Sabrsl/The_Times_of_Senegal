@@ -1,8 +1,8 @@
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
-import { ArticleCard } from '@/components/ArticleCard'
-import { getPersonBySlug, getArticlesByPerson } from '@/lib/supabase/entities'
+import { getPersonBySlug, getArticlesByPerson, getDossiersByPerson } from '@/lib/supabase/entities'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 
 export const revalidate = 300
 
@@ -14,6 +14,7 @@ export default async function PersonPage({ params }: { params: { slug: string } 
   }
 
   const relatedArticles = await getArticlesByPerson(person.id)
+  const relatedDossiers = await getDossiersByPerson(person.id)
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
@@ -49,15 +50,60 @@ export default async function PersonPage({ params }: { params: { slug: string } 
           </div>
         </section>
 
+        {/* Related Dossiers */}
+        {relatedDossiers.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide mb-4" style={{ fontSize: '12px' }}>
+              Dossiers liés
+            </h2>
+            <div className="space-y-2">
+              {relatedDossiers.map((dossier: any) => (
+                <Link
+                  key={dossier.id}
+                  href={`/dossiers/${dossier.slug}`}
+                  className="block p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-strong)] transition-colors"
+                >
+                  <h3 className="text-sm font-medium text-[var(--text-primary)]" style={{ fontSize: '14px' }}>
+                    {dossier.title}
+                  </h3>
+                  {dossier.description && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-1" style={{ fontSize: '12px' }}>
+                      {dossier.description}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Related Articles */}
         {relatedArticles.length > 0 && (
           <section className="mb-8">
             <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide mb-4" style={{ fontSize: '12px' }}>
               Actualités liées
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {relatedArticles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
+            <div className="space-y-2">
+              {relatedArticles.map((article: any) => (
+                <Link
+                  key={article.id}
+                  href={`/article/${article.slug}`}
+                  className="block p-3 bg-[var(--surface)] border border-[var(--border)] hover:border-[var(--border-strong)] transition-colors"
+                >
+                  <h3 className="text-sm font-medium text-[var(--text-primary)]" style={{ fontSize: '14px' }}>
+                    {article.title}
+                  </h3>
+                  {article.excerpt && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-1" style={{ fontSize: '12px' }}>
+                      {article.excerpt}
+                    </p>
+                  )}
+                  {article.publishedAt && (
+                    <p className="text-xs text-[var(--text-muted)] mt-2" style={{ fontSize: '11px' }}>
+                      {new Date(article.publishedAt).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                </Link>
               ))}
             </div>
           </section>

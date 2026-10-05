@@ -92,19 +92,32 @@ export default function AdminCategories() {
     const targetCategory = categories[newIndex]
 
     try {
-      await supabase
+      const { error: error1 } = await supabase
         .from('categories')
         .update({ position: targetCategory.position })
         .eq('id', currentCategory.id)
 
-      await supabase
+      if (error1) {
+        console.error('Error updating current category position:', error1)
+        alert('Erreur lors du déplacement de la catégorie')
+        return
+      }
+
+      const { error: error2 } = await supabase
         .from('categories')
         .update({ position: currentCategory.position })
         .eq('id', targetCategory.id)
 
+      if (error2) {
+        console.error('Error updating target category position:', error2)
+        alert('Erreur lors du déplacement de la catégorie')
+        return
+      }
+
       loadCategories()
     } catch (error) {
       console.error('Error moving category:', error)
+      alert('Erreur lors du déplacement de la catégorie')
     }
   }
 
@@ -215,7 +228,7 @@ export default function AdminCategories() {
                         </span>
                         <button
                           onClick={() => handleMovePosition(category.id, 'down')}
-                          disabled={index === filteredCategories.length - 1}
+                          disabled={index === categories.length - 1}
                           className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-30 transition-colors"
                         >
                           <ArrowDown size={16} />
