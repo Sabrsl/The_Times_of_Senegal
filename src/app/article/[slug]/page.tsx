@@ -10,31 +10,20 @@ import { CommentForm } from '@/components/CommentForm'
 import { CommentList } from '@/components/CommentList'
 import { ScrollToTop } from '@/components/ScrollToTop'
 import { DownloadPDF } from '@/components/DownloadPDF'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Playfair_Display } from 'next/font/google'
 
 export const revalidate = 300
 
 const TIME_ZONE = 'Africa/Dakar'
-
-/** Police des titres : Playfair Display (élégante, proche des titres de presse). */
-const titleFont = Playfair_Display({
-  subsets: ['latin'],
-  style: ['normal'],
-  weight: ['600', '700'],
-  display: 'swap',
-  variable: '--font-title',
-  fallback: ['Georgia', 'Times New Roman', 'serif'],
-})
 
 /* -------------------------------------------------------------------------- */
 /*  Data (inchangé)                                                           */
 /* -------------------------------------------------------------------------- */
 
 async function getArticle(slug: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data, error } = await supabase
     .from('articles')
@@ -76,7 +65,7 @@ async function getArticle(slug: string) {
 }
 
 async function getRelatedArticles(articleId: string, categorySlug?: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   
   let query = supabase
     .from('articles')
@@ -95,7 +84,7 @@ async function getRelatedArticles(articleId: string, categorySlug?: string) {
 }
 
 async function getComments(articleId: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   
   const { data } = await supabase
     .from('comments')
@@ -238,7 +227,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
         {/* Title */}
         <h1
-          className={`${titleFont.className} mb-4 text-[32px] font-bold leading-[1.15] tracking-[0.01em] text-[var(--text-primary)] sm:mb-5 sm:text-[44px] sm:leading-[1.12] sm:tracking-[0.015em]`}
+          className="mb-4 text-[32px] font-bold leading-[1.15] tracking-[0.01em] text-[var(--text-primary)] sm:mb-5 sm:text-[44px] sm:leading-[1.12] sm:tracking-[0.015em]"
         >
           {formattedArticle.title}
         </h1>
@@ -289,9 +278,9 @@ export default async function ArticlePage({ params }: { params: { slug: string }
           </div>
         )}
 
-        {/* Article Content : titres internes en Playfair italique */}
+        {/* Article Content */}
         <article
-          className={`${titleFont.variable} prose mb-4 max-w-none text-[18px] leading-[1.65] prose-p:my-0 prose-headings:font-[family-name:var(--font-title)] prose-headings:font-semibold sm:text-[20px] sm:leading-[1.6]`}
+          className="prose mb-4 max-w-none text-[18px] leading-[1.65] prose-p:my-0 prose-headings:font-semibold sm:text-[20px] sm:leading-[1.6]"
         >
           <div
             className="space-y-5 text-[var(--text-primary)]"

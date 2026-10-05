@@ -4,7 +4,7 @@ import { verifyPDFReference, PDF_REFERENCE_PATTERN } from '@/lib/pdf-reference'
 import { Shield, CheckCircle, XCircle, AlertCircle, Search } from 'lucide-react'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import { redirect } from 'next/navigation'
 
 interface VerifyPageProps {
@@ -62,7 +62,7 @@ function MessageScreen({
 
 // Récupère l'article dont la référence correspond
 async function getArticleInfo(reference: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
 
   const { data, error } = await supabase
     .from('articles')

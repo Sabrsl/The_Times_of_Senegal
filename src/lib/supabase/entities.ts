@@ -1,4 +1,4 @@
-import { createClient } from './server'
+import { createPublicClient } from './public'
 import { cachedQuery, entitiesCache, articlesCache, generateCacheKey } from './cache'
 
 /**
@@ -8,7 +8,7 @@ export async function getPersonBySlug(slug: string) {
   const cacheKey = generateCacheKey('person_by_slug', { slug })
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('people')
@@ -31,7 +31,7 @@ export async function getOrganizationBySlug(slug: string) {
   const cacheKey = generateCacheKey('organization_by_slug', { slug })
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('organizations')
@@ -54,7 +54,7 @@ export async function getPlaceBySlug(slug: string) {
   const cacheKey = generateCacheKey('place_by_slug', { slug })
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('places')
@@ -77,7 +77,7 @@ export async function getEventBySlug(slug: string) {
   const cacheKey = generateCacheKey('event_by_slug', { slug })
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('events')
@@ -100,7 +100,7 @@ export async function getArticlesByPerson(personId: string) {
   const cacheKey = generateCacheKey('articles_by_person', { personId })
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('article_people')
@@ -133,7 +133,7 @@ export async function getArticlesByOrganization(organizationId: string) {
   const cacheKey = generateCacheKey('articles_by_organization', { organizationId })
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('article_organizations')
@@ -166,7 +166,7 @@ export async function getArticlesByPlace(placeId: string) {
   const cacheKey = generateCacheKey('articles_by_place', { placeId })
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('article_places')
@@ -199,7 +199,7 @@ export async function getArticlesByEvent(eventId: string) {
   const cacheKey = generateCacheKey('articles_by_event', { eventId })
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('article_events')
@@ -232,7 +232,7 @@ export async function getAllPeople() {
   const cacheKey = 'all_people'
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('people')
@@ -254,7 +254,7 @@ export async function getAllOrganizations() {
   const cacheKey = 'all_organizations'
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('organizations')
@@ -276,7 +276,7 @@ export async function getAllPlaces() {
   const cacheKey = 'all_places'
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('places')
@@ -298,7 +298,7 @@ export async function getAllEvents() {
   const cacheKey = 'all_events'
 
   return cachedQuery(entitiesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('events')

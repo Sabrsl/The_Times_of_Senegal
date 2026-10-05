@@ -5,7 +5,7 @@ import { ArticleCard } from '@/components/ArticleCard'
 import { DateTimeDisplay } from '@/components/DateTimeDisplay'
 import { BentoGrid } from '@/components/BentoGrid'
 import { FeaturedArticle } from '@/components/bento/BentoItem'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 
 /**
  * Régénération de la page toutes les 60 s (ISR) :
@@ -38,7 +38,7 @@ const BENTO_SIZES: ReadonlyArray<'large' | 'medium' | 'small'> = [
 
 async function getArticles() {
   try {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('articles')

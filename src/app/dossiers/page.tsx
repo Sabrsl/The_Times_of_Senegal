@@ -1,10 +1,10 @@
 import { EntityListing } from '@/components/EntityListing'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 
 export const revalidate = 300
 
 async function getDossiers() {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   
   const { data, error } = await supabase
     .from('dossiers')

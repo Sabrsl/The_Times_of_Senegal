@@ -1,11 +1,11 @@
 import { EntityLayout } from '@/components/EntityLayout'
-import { createClient } from '@/lib/supabase/server'
+import { createPublicClient } from '@/lib/supabase/public'
 import { notFound } from 'next/navigation'
 
 export const revalidate = 300
 
 async function getDossier(slug: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   
   const { data, error } = await supabase
     .from('dossiers')
@@ -22,7 +22,7 @@ async function getDossier(slug: string) {
 }
 
 async function getRelatedArticles(dossierId: string) {
-  const supabase = await createClient()
+  const supabase = createPublicClient()
   
   const { data, error } = await supabase
     .from('article_dossiers')

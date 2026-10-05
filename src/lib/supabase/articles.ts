@@ -1,11 +1,11 @@
-import { createClient } from './server'
+import { createPublicClient } from './public'
 import { cachedQuery, articlesCache, categoriesCache, generateCacheKey } from './cache'
 
 export async function getArticlesByCategory(categorySlug: string) {
   const cacheKey = generateCacheKey('articles_by_category', { categorySlug })
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     // Get category ID and articles in parallel for better performance
     const [categoryResult, articlesResult] = await Promise.all([
@@ -47,7 +47,7 @@ export async function getDossiers() {
   const cacheKey = 'all_dossiers'
 
   return cachedQuery(articlesCache, cacheKey, async () => {
-    const supabase = await createClient()
+    const supabase = createPublicClient()
 
     const { data, error } = await supabase
       .from('dossiers')
