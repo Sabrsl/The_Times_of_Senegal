@@ -1,0 +1,263 @@
+
+=== TECHNICAL AUDIT REPORT ===
+Total Tests: 32
+Passed: 27 (84.4%)
+Failed: 5 (15.6%)
+
+=== TEST RESULTS ===
+
+[P1] Person full name exact match
+Input: "Bassirou Diomaye Faye s'est rendu à Dakar."
+Expected: person - Bassirou Diomaye Faye (MATCHED)
+Actual: person - Bassirou Diomaye Faye (MATCHED) [score: 0.92]
+Status: ✓ PASS
+Notes: PASS: Bassirou Diomaye Faye (MATCHED, score: 0.92)
+---
+
+[P2] Person exact match
+Input: "Macky Sall a annoncé une nouvelle politique."
+Expected: person - Macky Sall (MATCHED)
+Actual: person - Macky Sall (MATCHED) [score: 0.88]
+Status: ✓ PASS
+Notes: PASS: Macky Sall (MATCHED, score: 0.88)
+---
+
+[P3] Generic term "président" should be filtered
+Input: "Le président a dit que..."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[P4] Generic term "ministre" should be filtered
+Input: "Le ministre de la Santé a visité l'hôpital."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[P5] Person not in database - new entity candidate
+Input: "Jean Dupont est un nouveau résident."
+Expected: person - Jean Dupont (NEW_ENTITY)
+Actual: none
+Status: ✗ FAIL
+Notes: FAIL: Expected person but no detection found
+---
+
+[O1] Organization exact match
+Input: "La BCEAO a publié un rapport."
+Expected: organization - BCEAO (MATCHED)
+Actual: organization - BCEAO (MATCHED) [score: 0.90]
+Status: ✓ PASS
+Notes: PASS: BCEAO (MATCHED, score: 0.90)
+---
+
+[O2] Organization exact match
+Input: "L'Assemblée Nationale a voté une loi."
+Expected: organization - Assemblée Nationale (MATCHED)
+Actual: organization - Assemblée Nationale (MATCHED) [score: 0.90]
+Status: ✓ PASS
+Notes: PASS: Assemblée Nationale (MATCHED, score: 0.90)
+---
+
+[O3] Organization via alias
+Input: "La Banque centrale a annoncé une décision."
+Expected: organization - BCEAO (MATCHED)
+Actual: none
+Status: ✗ FAIL
+Notes: FAIL: Expected organization but no detection found
+---
+
+[O4] Generic term "gouvernement" should be filtered
+Input: "Le gouvernement a décidé."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[O5] Organization exact match
+Input: "L'ANSD a publié des statistiques."
+Expected: organization - ANSD (MATCHED)
+Actual: organization - ANSD (MATCHED) [score: 0.92]
+Status: ✓ PASS
+Notes: PASS: ANSD (MATCHED, score: 0.92)
+---
+
+[O6] Organization not in database - new entity candidate
+Input: "Une nouvelle organisation appelée TechSénégal a été créée."
+Expected: organization - TechSénégal (NEW_ENTITY)
+Actual: none
+Status: ✗ FAIL
+Notes: FAIL: Expected organization but no detection found
+---
+
+[L1] Place exact match
+Input: "Le gouvernement s'est réuni à Dakar."
+Expected: place - Dakar (MATCHED)
+Actual: place - Dakar (MATCHED) [score: 0.95]
+Status: ✓ PASS
+Notes: PASS: Dakar (MATCHED, score: 0.95)
+---
+
+[L2] Place exact match with hyphen
+Input: "Saint-Louis accueille le festival."
+Expected: place - Saint-Louis (MATCHED)
+Actual: place - Saint-Louis (MATCHED) [score: 0.91]
+Status: ✓ PASS
+Notes: PASS: Saint-Louis (MATCHED, score: 0.91)
+---
+
+[L3] Place exact match with accent
+Input: "La ville de Thiès se développe."
+Expected: place - Thiès (MATCHED)
+Actual: place - Thiès (MATCHED) [score: 0.95]
+Status: ✓ PASS
+Notes: PASS: Thiès (MATCHED, score: 0.95)
+---
+
+[L4] Place exact match country
+Input: "Le Sénégal a gagné le match."
+Expected: place - Sénégal (MATCHED)
+Actual: place - Sénégal (MATCHED) [score: 0.91]
+Status: ✓ PASS
+Notes: PASS: Sénégal (MATCHED, score: 0.91)
+---
+
+[L5] Generic terms "capitale" and "pays" should be filtered
+Input: "La capitale du pays est importante."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[L6] Place not in database - new entity candidate
+Input: "La ville de Kaolack est en croissance."
+Expected: place - Kaolack (NEW_ENTITY)
+Actual: none
+Status: ✗ FAIL
+Notes: FAIL: Expected place but no detection found
+---
+
+[V1] Multiple persons in same sentence
+Input: "Bassirou Diomaye Faye et Macky Sall se sont rencontrés."
+Expected: person - Bassirou Diomaye Faye (MATCHED)
+Actual: person - Bassirou Diomaye Faye (MATCHED) [score: 0.88]
+Status: ✓ PASS
+Notes: PASS: Bassirou Diomaye Faye (MATCHED, score: 0.88)
+---
+
+[V2] Multiple places in same sentence
+Input: "Dakar, Saint-Louis et Thiès sont des villes importantes."
+Expected: place - Dakar (MATCHED)
+Actual: place - Dakar (MATCHED) [score: 0.97]
+Status: ✓ PASS
+Notes: PASS: Dakar (MATCHED, score: 0.97)
+---
+
+[V3] Person with title prefix (title filtered, person kept)
+Input: "Le président Bassirou Diomaye Faye a parlé."
+Expected: person - Bassirou Diomaye Faye (MATCHED)
+Actual: person - Bassirou Diomaye Faye (MATCHED) [score: 0.92]
+Status: ✓ PASS
+Notes: PASS: Bassirou Diomaye Faye (MATCHED, score: 0.92)
+---
+
+[R1] Same entity mentioned 3 times - should deduplicate to 1
+Input: "Dakar est la capitale. Dakar a accueilli le sommet. Dakar est en croissance."
+Expected: place - Dakar (MATCHED)
+Actual: place - Dakar (MATCHED) [score: 0.93]
+Status: ✓ PASS
+Notes: PASS: Dakar (MATCHED, score: 0.93)
+---
+
+[R2] Same person mentioned twice - should deduplicate to 1
+Input: "Bassirou Diomaye Faye a dit. Bassirou Diomaye Faye a fait."
+Expected: person - Bassirou Diomaye Faye (MATCHED)
+Actual: person - Bassirou Diomaye Faye (MATCHED) [score: 0.86]
+Status: ✓ PASS
+Notes: PASS: Bassirou Diomaye Faye (MATCHED, score: 0.86)
+---
+
+[F1] Generic term "autorités" should be filtered
+Input: "Les autorités ont décidé."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[F2] Generic term "responsables" should be filtered
+Input: "Les responsables ont réagi."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[F3] Generic term "région" should be filtered
+Input: "La région se développe."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[F4] Generic term "département" should be filtered
+Input: "Le département a annoncé."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[E1] Empty text - no detections
+Input: ""
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[E2] Text with no entities - no detections
+Input: "Ceci est un texte sans entités spécifiques."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[E3] Place in uppercase - should still match
+Input: "DAKAR est en majuscules."
+Expected: place - DAKAR (MATCHED)
+Actual: place - Dakar (MATCHED) [score: 0.95]
+Status: ✗ FAIL
+Notes: FAIL: Type ✓, Entity ✗, State ✓
+---
+
+[E4] Place in lowercase - regex requires capitalization
+Input: "dakar est en minuscules."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[EV1] Event detection not implemented - limitation
+Input: "L'élection présidentielle de 2024 a eu lieu."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
+
+[EV2] Event detection not implemented - limitation
+Input: "La CAN 2025 se tiendra au Sénégal."
+Expected: none
+Actual: none
+Status: ✓ PASS
+Notes: PASS: No detection as expected
+---
