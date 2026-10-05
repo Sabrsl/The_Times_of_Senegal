@@ -205,6 +205,11 @@ export default function AdminPersonEdit() {
 
       // Clear people cache to reflect changes
       clearEntityTypeCache('people')
+      try {
+        await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'people', cacheSystem: 'both' }) })
+      } catch (error) {
+        console.error('Error clearing server cache:', error)
+      }
       alert('Personne sauvegardée avec succès')
       router.push('/admin/people')
     } catch (error) {

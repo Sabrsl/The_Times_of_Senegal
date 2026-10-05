@@ -106,6 +106,13 @@ export default function AdminCategoryEdit() {
       } else {
         alert('Catégorie sauvegardée avec succès')
         router.push('/admin/categories')
+
+        // Clear server cache after saving
+        try {
+          await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'categories', cacheSystem: 'both' }) })
+        } catch (error) {
+          console.error('Error clearing cache:', error)
+        }
       }
     } catch (error) {
       console.error('Error saving category:', error)

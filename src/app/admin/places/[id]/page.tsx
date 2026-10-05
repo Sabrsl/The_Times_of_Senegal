@@ -111,6 +111,11 @@ export default function AdminPlaceEdit() {
       } else {
         // Clear places cache to reflect changes
         clearEntityTypeCache('places')
+        try {
+          await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'places', cacheSystem: 'both' }) })
+        } catch (error) {
+          console.error('Error clearing server cache:', error)
+        }
         alert('Lieu sauvegardé avec succès')
         router.push('/admin/places')
       }

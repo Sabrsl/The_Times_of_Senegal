@@ -114,6 +114,11 @@ export default function AdminEventEdit() {
       } else {
         // Clear events cache to reflect changes
         clearEntityTypeCache('events')
+        try {
+          await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'events', cacheSystem: 'both' }) })
+        } catch (error) {
+          console.error('Error clearing server cache:', error)
+        }
         alert('Événement sauvegardé avec succès')
         router.push('/admin/events')
       }

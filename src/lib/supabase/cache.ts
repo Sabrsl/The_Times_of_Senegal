@@ -51,9 +51,10 @@ class ServerCache {
 }
 
 // Separate caches for different data types
-export const articlesCache = new ServerCache(5) // 5 minutes for articles
-export const entitiesCache = new ServerCache(10) // 10 minutes for entities (people, orgs, places)
-export const categoriesCache = new ServerCache(15) // 15 minutes for categories (rarely change)
+// Optimized for news site: longer cache but immediate invalidation on changes
+export const articlesCache = new ServerCache(15) // 15 minutes for articles (invalidated on publish/edit)
+export const entitiesCache = new ServerCache(30) // 30 minutes for entities (people, orgs, places)
+export const categoriesCache = new ServerCache(60) // 60 minutes for categories (rarely change)
 
 /**
  * Wrapper for Supabase queries with caching
@@ -66,10 +67,12 @@ export async function cachedQuery<T>(
   // Check cache first
   const cached = cache.get<T>(key)
   if (cached !== null) {
+    console.log(`[Cache Hit] ${key}`)
     return cached
   }
 
-  // Execute query
+  // Cache miss - execute query
+  console.log(`[Cache Miss] ${key}`)
   const result = await queryFn()
 
   // Cache the result
@@ -96,4 +99,32 @@ export function clearAllServerCaches(): void {
   articlesCache.clear()
   entitiesCache.clear()
   categoriesCache.clear()
+}
+
+/**
+ * Clear cache for a specific entity type (selective invalidation)
+ * @param type - Entity type ('articles', 'people', 'organizations', 'places', 'events', 'dossiers', 'categories')
+ */
+export function clearServerCacheByType(type: string): void {
+  switch (type) {
+    case 'articles':
+      articlesCache.clear()
+      // Homepage uses articlesCache, so clearing articles also clears homepage
+      break
+    case 'people':
+    case 'organizations':
+    case 'places':
+    case 'events':
+    case 'dossiers':
+      entitiesCache.clear()
+      break
+    case 'categories':
+      categoriesCache.clear()
+      // Also clear articles cache since category changes affect article listings
+      articlesCache.clear()
+      break
+    default:
+      // Clear all if unknown type
+      clearAllServerCaches()
+  }
 }

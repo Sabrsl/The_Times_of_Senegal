@@ -1,50 +1,57 @@
 import { EntityLayout } from '@/components/EntityLayout'
 import { createPublicClient } from '@/lib/supabase/public'
 import { notFound } from 'next/navigation'
+import { articlesCache, cachedQuery, generateCacheKey } from '@/lib/supabase/cache'
 
 export const revalidate = 300
 
 async function getDossier(slug: string) {
-  const supabase = createPublicClient()
-  
-  const { data, error } = await supabase
-    .from('dossiers')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_visible', true)
-    .single()
+  const cacheKey = generateCacheKey('dossier', { slug })
+  return await cachedQuery(articlesCache, cacheKey, async () => {
+    const supabase = createPublicClient()
 
-  if (error || !data) {
-    return null
-  }
+    const { data, error } = await supabase
+      .from('dossiers')
+      .select('*')
+      .eq('slug', slug)
+      .eq('is_visible', true)
+      .single()
 
-  return data
+    if (error || !data) {
+      return null
+    }
+
+    return data
+  })
 }
 
 async function getRelatedArticles(dossierId: string) {
-  const supabase = createPublicClient()
-  
-  const { data, error } = await supabase
-    .from('article_dossiers')
-    .select(`
-      articles(
-        *,
-        category:categories(name, slug)
-      )
-    `)
-    .eq('dossier_id', dossierId)
+  const cacheKey = generateCacheKey('dossier-articles', { dossierId })
+  return await cachedQuery(articlesCache, cacheKey, async () => {
+    const supabase = createPublicClient()
 
-  if (error || !data) {
-    return []
-  }
+    const { data, error } = await supabase
+      .from('article_dossiers')
+      .select(`
+        articles(
+          *,
+          category:categories(name, slug)
+        )
+      `)
+      .eq('dossier_id', dossierId)
 
-  return data.map((item: any) => ({
-    ...item.articles,
-    publishedAt: item.articles.published_at,
-    updatedAt: item.articles.updated_at,
-    image: item.articles.featured_image,
-    category: item.articles.category?.name || ''
-  }))
+    if (error || !data) {
+      return []
+    }
+
+    return data.map((item: any) => ({
+      ...item.articles,
+      publishedAt: item.articles.published_at,
+      updatedAt: item.articles.updated_at,
+      image: item.articles.featured_image,
+      category: item.articles.category?.name || ''
+    }))
+  })
 }
 
 export default async function DossierPage({ params }: { params: { slug: string } }) {

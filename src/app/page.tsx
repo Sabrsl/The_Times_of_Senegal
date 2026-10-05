@@ -6,12 +6,13 @@ import { DateTimeDisplay } from '@/components/DateTimeDisplay'
 import { BentoGrid } from '@/components/BentoGrid'
 import { FeaturedArticle } from '@/components/bento/BentoItem'
 import { createPublicClient } from '@/lib/supabase/public'
+import { articlesCache, cachedQuery } from '@/lib/supabase/cache'
 
 /**
- * Régénération de la page toutes les 60 s (ISR) :
+ * Régénération de la page toutes les 5 minutes (ISR) :
  * la home reste rapide et le contenu se met à jour sans redéploiement.
  */
-export const revalidate = 0
+export const revalidate = 300
 
 const ARTICLES_LIMIT = 20
 const BENTO_COUNT = 8
@@ -38,34 +39,40 @@ const BENTO_SIZES: ReadonlyArray<'large' | 'medium' | 'small'> = [
 
 async function getArticles() {
   try {
-    const supabase = createPublicClient()
+    return await cachedQuery(
+      articlesCache,
+      'homepage-articles',
+      async () => {
+        const supabase = createPublicClient()
 
-    const { data, error } = await supabase
-      .from('articles')
-      .select(
-        `
-        *,
-        category:categories(name, slug)
-      `
-      )
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(ARTICLES_LIMIT)
+        const { data, error } = await supabase
+          .from('articles')
+          .select(
+            `
+            *,
+            category:categories(name, slug)
+          `
+          )
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(ARTICLES_LIMIT)
 
-    if (error) {
-      console.error('[HomePage] Erreur Supabase :', error.message)
-      return []
-    }
+        if (error) {
+          console.error('[HomePage] Erreur Supabase :', error.message)
+          return []
+        }
 
-    if (!data?.length) return []
+        if (!data?.length) return []
 
-    // Adapte les noms de colonnes Supabase au type Article (inchangé)
-    return data.map((article: any) => ({
-      ...article,
-      publishedAt: article.published_at,
-      updatedAt: article.updated_at,
-      image: article.featured_image,
-    }))
+        // Adapte les noms de colonnes Supabase au type Article (inchangé)
+        return data.map((article: any) => ({
+          ...article,
+          publishedAt: article.published_at,
+          updatedAt: article.updated_at,
+          image: article.featured_image,
+        }))
+      }
+    )
   } catch (err) {
     // Une panne réseau ou de config ne doit jamais faire planter la page
     console.error('[HomePage] Erreur inattendue :', err)

@@ -121,6 +121,11 @@ export default function AdminOrganizationEdit() {
       } else {
         // Clear organizations cache to reflect changes
         clearEntityTypeCache('organizations')
+        try {
+          await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'organizations', cacheSystem: 'both' }) })
+        } catch (error) {
+          console.error('Error clearing server cache:', error)
+        }
         alert('Organisation sauvegardée avec succès')
         router.push('/admin/organizations')
       }

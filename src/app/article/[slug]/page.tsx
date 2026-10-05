@@ -13,8 +13,9 @@ import { DownloadPDF } from '@/components/DownloadPDF'
 import { createPublicClient } from '@/lib/supabase/public'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { articlesCache, cachedQuery, generateCacheKey } from '@/lib/supabase/cache'
 
-export const revalidate = 0
+export const revalidate = 300
 
 const TIME_ZONE = 'Africa/Dakar'
 
@@ -23,64 +24,55 @@ const TIME_ZONE = 'Africa/Dakar'
 /* -------------------------------------------------------------------------- */
 
 async function getArticle(slug: string) {
-  const supabase = createPublicClient()
+  const cacheKey = generateCacheKey('article', { slug })
+  return await cachedQuery(articlesCache, cacheKey, async () => {
+    const supabase = createPublicClient()
 
-  const { data, error } = await supabase
-    .from('articles')
-    .select(`
-      *,
-      category:categories(name, slug),
-      author:profiles(first_name, last_name),
-      sources:article_sources(sources(*))
-    `)
-    .eq('slug', slug)
-    .eq('status', 'published')
-    .single()
+    const { data, error } = await supabase
+      .from('articles')
+      .select(`
+        *,
+        category:categories(name, slug),
+        author:profiles(first_name, last_name),
+        sources:article_sources(sources(*)),
+        tags:article_tags(tags(*)),
+        dossiers:article_dossiers(dossiers(*)),
+        people:article_people(people(*)),
+        organizations:article_organizations(organizations(*)),
+        places:article_places(places(*))
+      `)
+      .eq('slug', slug)
+      .eq('status', 'published')
+      .single()
 
-  if (error || !data) {
-    return null
-  }
+    if (error || !data) {
+      return null
+    }
 
-  // Try to fetch entity relations separately (optional)
-  const [tags, dossiers, people, organizations, places] = await Promise.allSettled([
-    supabase.from('article_tags').select('tags(*)').eq('article_id', data.id),
-    supabase.from('article_dossiers').select('dossiers(*)').eq('article_id', data.id),
-    supabase.from('article_people').select('people(*)').eq('article_id', data.id),
-    supabase.from('article_organizations').select('organizations(*)').eq('article_id', data.id),
-    supabase.from('article_places').select('places(*)').eq('article_id', data.id),
-  ])
-
-  const getSafeData = (result: PromiseSettledResult<any>) => {
-    return result.status === 'fulfilled' ? (result.value.data || []) : []
-  }
-
-  return {
-    ...data,
-    tags: getSafeData(tags),
-    dossiers: getSafeData(dossiers),
-    people: getSafeData(people),
-    organizations: getSafeData(organizations),
-    places: getSafeData(places),
-  }
+    return data
+  })
 }
 
 async function getRelatedArticles(articleId: string, categorySlug?: string) {
-  const supabase = createPublicClient()
-  
-  let query = supabase
-    .from('articles')
-    .select('id, title, slug, excerpt, published_at, category:categories(name, slug), featured_image')
-    .eq('status', 'published')
-    .neq('id', articleId)
-    .order('published_at', { ascending: false })
-    .limit(4)
-  
-  if (categorySlug) {
-    query = query.eq('category.slug', categorySlug)
-  }
-  
-  const { data } = await query
-  return data || []
+  const cacheKey = generateCacheKey('related-articles', { articleId, categorySlug })
+  return await cachedQuery(articlesCache, cacheKey, async () => {
+    const supabase = createPublicClient()
+
+    let query = supabase
+      .from('articles')
+      .select('id, title, slug, excerpt, published_at, category:categories(name, slug), featured_image')
+      .eq('status', 'published')
+      .neq('id', articleId)
+      .order('published_at', { ascending: false })
+      .limit(4)
+
+    if (categorySlug) {
+      query = query.eq('category.slug', categorySlug)
+    }
+
+    const { data } = await query
+    return data || []
+  })
 }
 
 async function getComments(articleId: string) {

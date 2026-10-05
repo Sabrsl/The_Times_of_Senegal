@@ -4,18 +4,22 @@ import { cachedQuery, articlesCache, categoriesCache, generateCacheKey } from '.
 export async function getArticlesByCategory(categorySlug: string) {
   const supabase = createPublicClient()
 
-  // Get category ID first
-  const { data: category } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('slug', categorySlug)
-    .single()
+  // Get category ID first (use cache if available)
+  const categoryCacheKey = generateCacheKey('category-id', { slug: categorySlug })
+  const category = await cachedQuery(categoriesCache, categoryCacheKey, async () => {
+    const { data } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('slug', categorySlug)
+      .single()
+    return data
+  })
 
   if (!category) {
     return []
   }
 
-  // Get articles filtered by category_id on server side (no cache)
+  // Get articles filtered by category_id on server side (no cache inside, but outer call is cached)
   const { data: articles } = await supabase
     .from('articles')
     .select(`

@@ -170,6 +170,13 @@ export default function AdminDossierEdit() {
       if (isNew && newDossierId) {
         router.replace(`/admin/dossiers/${newDossierId}`)
       }
+
+      // Clear server cache after saving
+      try {
+        await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cacheSystem: 'both' }) })
+      } catch (error) {
+        console.error('Error clearing cache:', error)
+      }
     } catch (error) {
       console.error('[Admin Dossier] Unexpected error:', error)
       alert(`Erreur lors de la sauvegarde du dossier: ${error}`)

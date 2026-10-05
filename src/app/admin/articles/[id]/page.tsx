@@ -10,7 +10,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { Save, Eye, ArrowLeft, Plus, X } from 'lucide-react'
 import { ClassificationProposal, EntityDetection } from '@/types/classification'
 import { EntityDetector, fetchExistingEntities } from '@/lib/classification/detector'
-import { generateContentHash, getCachedAnalysis, setCachedAnalysis } from '@/lib/classification/cache'
+import { generateContentHash, getCachedAnalysis, setCachedAnalysis, getCachedEntitiesByType } from '@/lib/classification/cache'
 
 interface Category {
   id: string
@@ -116,14 +116,21 @@ export default function AdminArticleEdit() {
         setCategories(categoriesData)
       }
 
-      // Load available entities
+      // Load available entities (use cache when available)
+      const cachedPeople = getCachedEntitiesByType('people')
+      const cachedOrgs = getCachedEntitiesByType('organizations')
+      const cachedPlaces = getCachedEntitiesByType('places')
+      const cachedEvents = getCachedEntitiesByType('events')
+      const cachedTags = getCachedEntitiesByType('tags')
+      const cachedDossiers = getCachedEntitiesByType('dossiers')
+
       const [peopleData, orgsData, placesData, eventsData, tagsData, dossiersData] = await Promise.all([
-        supabase.from('people').select('id, name').order('name'),
-        supabase.from('organizations').select('id, name').order('name'),
-        supabase.from('places').select('id, name').order('name'),
-        supabase.from('events').select('id, name').order('name'),
-        supabase.from('tags').select('id, name, slug').order('name'),
-        supabase.from('dossiers').select('id, title, slug').eq('is_visible', true).order('title'),
+        cachedPeople ? { data: cachedPeople } : supabase.from('people').select('id, name').order('name'),
+        cachedOrgs ? { data: cachedOrgs } : supabase.from('organizations').select('id, name').order('name'),
+        cachedPlaces ? { data: cachedPlaces } : supabase.from('places').select('id, name').order('name'),
+        cachedEvents ? { data: cachedEvents } : supabase.from('events').select('id, name').order('name'),
+        cachedTags ? { data: cachedTags } : supabase.from('tags').select('id, name, slug').order('name'),
+        cachedDossiers ? { data: cachedDossiers } : supabase.from('dossiers').select('id, title, slug').eq('is_visible', true).order('title'),
       ])
 
       if (peopleData.data) setAvailablePeople(peopleData.data)
@@ -683,6 +690,13 @@ export default function AdminArticleEdit() {
         alert('Article sauvegardé avec succès')
         if (isNew && articleId) {
           router.replace(`/admin/articles/${articleId}`)
+        }
+
+        // Clear server cache after saving (only articles)
+        try {
+          await fetch('/api/clear-cache', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'articles', cacheSystem: 'both' }) })
+        } catch (error) {
+          console.error('Error clearing server cache:', error)
         }
       }
     } catch (error) {

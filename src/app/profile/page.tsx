@@ -1,83 +1,123 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { useTheme } from '@/components/ThemeProvider'
-import { User, LogOut } from 'lucide-react'
+import { User, LogOut, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+interface ProfileState {
+  first_name: string
+  last_name: string
+  email: string
+  avatar_url: string
+  role: string
+}
+
+type FeedbackMessage = { type: 'success' | 'error'; text: string } | null
+
+const inputClass =
+  'min-h-11 w-full rounded-sm border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--border-strong)] focus:outline-none sm:text-sm'
+
+const labelClass =
+  'mb-1 block text-xs font-medium text-[var(--text-primary)]'
+
 export default function ProfilePage() {
   const router = useRouter()
-  const supabase = createClient()
+  // Un seul client Supabase par instance de page (et non un par rendu)
+  const supabase = useMemo(() => createClient(), [])
   const { theme, toggleTheme } = useTheme()
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [profile, setProfile] = useState({
+  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [message, setMessage] = useState<FeedbackMessage>(null)
+  const [profile, setProfile] = useState<ProfileState>({
     first_name: '',
     last_name: '',
     email: '',
     avatar_url: '',
+    role: 'user',
   })
 
   useEffect(() => {
-    loadProfile()
-  }, [])
+    let cancelled = false
 
-  const loadProfile = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        router.push('/auth/login')
-        return
-      }
+    const loadProfile = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
 
-      const { data: profileData, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+        if (!user) {
+          router.push('/auth/login')
+          return
+        }
 
-      if (error) {
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+
+        if (cancelled) return
+
+        if (error) {
+          console.error('Error loading profile:', error)
+        } else if (profileData) {
+          setProfile({
+            first_name: profileData.first_name || '',
+            last_name: profileData.last_name || '',
+            email: profileData.email || user.email || '',
+            avatar_url: profileData.avatar_url || '',
+            role: profileData.role || 'user',
+          })
+        }
+      } catch (error) {
         console.error('Error loading profile:', error)
-      } else if (profileData) {
-        setProfile({
-          first_name: profileData.first_name || '',
-          last_name: profileData.last_name || '',
-          email: profileData.email || user.email || '',
-          avatar_url: profileData.avatar_url || '',
-        })
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    } catch (error) {
-      console.error('Error loading profile:', error)
-    } finally {
-      setLoading(false)
     }
-  }
 
-  const handleSave = async () => {
+    loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, router])
+
+  // Réessaie d'afficher l'avatar quand l'URL change
+  useEffect(() => {
+    setAvatarFailed(false)
+  }, [profile.avatar_url])
+
+  const handleSave = async (event?: FormEvent) => {
+    event?.preventDefault()
+    if (saving) return
+
     setSaving(true)
     setMessage(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       if (!user) {
         setMessage({ type: 'error', text: 'Utilisateur non connecté' })
-        setSaving(false)
         return
       }
 
       const { error } = await supabase
         .from('profiles')
         .update({
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          avatar_url: profile.avatar_url,
+          first_name: profile.first_name.trim(),
+          last_name: profile.last_name.trim(),
+          avatar_url: profile.avatar_url.trim(),
         })
         .eq('id', user.id)
 
@@ -86,24 +126,92 @@ export default function ProfilePage() {
       } else {
         setMessage({ type: 'success', text: 'Profil mis à jour avec succès' })
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Une erreur est survenue lors de la mise à jour du profil' })
+    } catch {
+      setMessage({
+        type: 'error',
+        text: 'Une erreur est survenue lors de la mise à jour du profil',
+      })
     } finally {
       setSaving(false)
     }
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    } finally {
+      router.push('/')
+      router.refresh()
+    }
+  }
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    setMessage(null)
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setMessage({ type: 'error', text: 'Utilisateur non connecté' })
+        return
+      }
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        setMessage({ type: 'error', text: uploadError.message })
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      // Save to database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id)
+
+      if (updateError) {
+        setMessage({ type: 'error', text: updateError.message })
+        return
+      }
+
+      setProfile({ ...profile, avatar_url: publicUrl })
+      setAvatarFailed(false)
+      setMessage({ type: 'success', text: 'Photo mise à jour avec succès' })
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Erreur lors de l\'upload de la photo' })
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--background)]">
         <Header />
-        <main className="max-w-4xl mx-auto px-4 lg:px-6 py-8">
-          <p className="text-sm text-[var(--text-secondary)]" style={{ fontSize: '14px' }}>
+        <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8 lg:px-6">
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-sm text-[var(--text-secondary)]"
+          >
             Chargement...
           </p>
         </main>
@@ -112,26 +220,30 @@ export default function ProfilePage() {
     )
   }
 
+  const fullName = `${profile.first_name} ${profile.last_name}`.trim()
+  const showAvatar = Boolean(profile.avatar_url) && !avatarFailed
+
   return (
     <div className="min-h-screen bg-[var(--background)]">
       <Header />
-      
-      <main className="max-w-4xl mx-auto px-4 lg:px-6 py-8">
-        <section className="mb-8 pb-6 border-b border-[var(--border)]">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2" style={{ fontSize: '32px' }}>
+
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:py-8 lg:px-6">
+        <section className="mb-6 border-b border-[var(--border)] pb-5 sm:mb-8 sm:pb-6">
+          <h1 className="mb-2 text-[26px] font-bold leading-tight text-[var(--text-primary)] sm:text-[32px]">
             Mon profil
           </h1>
-          <p className="text-sm text-[var(--text-secondary)]" style={{ fontSize: '14px' }}>
+          <p className="text-sm text-[var(--text-secondary)]">
             Gérez vos informations personnelles
           </p>
         </section>
 
         {message && (
           <div
-            className={`p-4 mb-4 border ${
+            role={message.type === 'error' ? 'alert' : 'status'}
+            className={`mb-4 border p-3 text-sm sm:p-4 ${
               message.type === 'success'
-                ? 'bg-[var(--surface-success)] border-[var(--border-success)] text-[var(--text-success)]'
-                : 'bg-[var(--surface-error)] border-[var(--border-error)] text-[var(--text-error)]'
+                ? 'border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_10%,transparent)] text-[var(--success)]'
+                : 'border-[var(--error)] bg-[color-mix(in_srgb,var(--error)_10%,transparent)] text-[var(--error)]'
             }`}
           >
             {message.text}
@@ -139,57 +251,87 @@ export default function ProfilePage() {
         )}
 
         <section className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-20 h-20 bg-[var(--surface-muted)] border border-[var(--border)] flex items-center justify-center">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+          <div className="mb-6 flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden border border-[var(--border)] bg-[var(--surface-muted)] sm:h-20 sm:w-20">
+              {showAvatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={profile.avatar_url}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarFailed(true)}
+                />
               ) : (
                 <User size={32} className="text-[var(--text-muted)]" />
               )}
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-[var(--text-primary)]" style={{ fontSize: '16px' }}>
-                {profile.first_name} {profile.last_name}
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-base font-semibold text-[var(--text-primary)]">
+                {fullName}
               </h2>
-              <p className="text-sm text-[var(--text-secondary)]" style={{ fontSize: '14px' }}>
+              <p className="truncate text-sm text-[var(--text-secondary)]">
                 {profile.email}
               </p>
+              <p className="mt-1 text-xs font-medium text-[var(--accent)]">
+                Rôle : {profile.role}
+              </p>
+            </div>
+            <div>
+              <input
+                type="file"
+                id="avatar-upload"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+              <label
+                htmlFor="avatar-upload"
+                className="flex cursor-pointer items-center gap-2 rounded-sm border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] disabled:opacity-50"
+              >
+                <Upload size={16} />
+                {uploading ? 'Upload...' : 'Changer photo'}
+              </label>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="firstName" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                <label htmlFor="firstName" className={labelClass}>
                   Prénom
                 </label>
                 <input
                   type="text"
                   id="firstName"
+                  autoComplete="given-name"
                   value={profile.first_name}
-                  onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
-                  style={{ fontSize: '14px' }}
+                  onChange={(e) =>
+                    setProfile({ ...profile, first_name: e.target.value })
+                  }
+                  className={inputClass}
                 />
               </div>
 
               <div>
-                <label htmlFor="lastName" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+                <label htmlFor="lastName" className={labelClass}>
                   Nom
                 </label>
                 <input
                   type="text"
                   id="lastName"
+                  autoComplete="family-name"
                   value={profile.last_name}
-                  onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
-                  style={{ fontSize: '14px' }}
+                  onChange={(e) =>
+                    setProfile({ ...profile, last_name: e.target.value })
+                  }
+                  className={inputClass}
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
+              <label htmlFor="email" className={labelClass}>
                 Email
               </label>
               <input
@@ -197,76 +339,81 @@ export default function ProfilePage() {
                 id="email"
                 value={profile.email}
                 disabled
-                className="w-full px-3 py-2 bg-[var(--surface-muted)] border border-[var(--border)] rounded-sm text-sm text-[var(--text-muted)]"
-                style={{ fontSize: '14px' }}
+                aria-describedby="email-help"
+                className="min-h-11 w-full rounded-sm border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-base text-[var(--text-muted)] sm:text-sm"
               />
-              <p className="text-xs text-[var(--text-muted)] mt-1" style={{ fontSize: '11px' }}>
-                L'email ne peut pas être modifié
+              <p
+                id="email-help"
+                className="mt-1 text-[11px] text-[var(--text-muted)]"
+              >
+                L&apos;email ne peut pas être modifié
               </p>
             </div>
 
             <div>
-              <label htmlFor="avatarUrl" className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
-                URL de l'avatar
+              <label htmlFor="avatarUrl" className={labelClass}>
+                URL de l&apos;avatar
               </label>
               <input
-                type="text"
+                type="url"
+                inputMode="url"
                 id="avatarUrl"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={profile.avatar_url}
-                onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-                className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-sm text-sm focus:outline-none focus:border-[var(--border-strong)]"
-                style={{ fontSize: '14px' }}
+                onChange={(e) =>
+                  setProfile({ ...profile, avatar_url: e.target.value })
+                }
+                className={inputClass}
                 placeholder="https://..."
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-primary)] mb-1" style={{ fontSize: '12px' }}>
-                Thème
-              </label>
-              <div className="flex items-center gap-2">
+              <span className={labelClass}>Thème</span>
+              <div className="flex flex-wrap items-center gap-2">
                 <button
+                  type="button"
                   onClick={toggleTheme}
-                  className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-sm text-sm hover:border-[var(--border-strong)] transition-colors"
-                  style={{ fontSize: '14px' }}
+                  aria-label="Changer de thème"
+                  className="min-h-11 rounded-sm border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)]"
                 >
                   {theme === 'light' ? 'Clair' : 'Sombre'}
                 </button>
-                <span className="text-sm text-[var(--text-secondary)]" style={{ fontSize: '14px' }}>
+                <span className="text-sm text-[var(--text-secondary)]">
                   Thème actuel : {theme === 'light' ? 'Clair' : 'Sombre'}
                 </span>
               </div>
             </div>
-          </div>
 
-          <div className="mt-6 flex gap-4">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-[var(--accent)] text-[var(--text-inverse)] text-sm font-medium rounded-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
-              style={{ fontSize: '14px' }}
-            >
-              {saving ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
-          </div>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="min-h-11 w-full rounded-sm bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--text-inverse)] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-50 sm:w-auto"
+              >
+                {saving ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
         </section>
 
-        <section className="mt-12 pt-8 border-t border-[var(--border)]">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide mb-4" style={{ fontSize: '12px' }}>
+        <section className="mt-10 border-t border-[var(--border)] pt-6 sm:mt-12 sm:pt-8">
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">
             Actions
           </h2>
           <div className="space-y-2">
             <Link
               href="/admin"
-              className="flex items-center gap-2 text-sm text-[var(--text-primary)] border-b border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors py-2"
-              style={{ fontSize: '14px' }}
+              className="flex min-h-11 items-center gap-2 border-b border-[var(--border)] py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               Administration
             </Link>
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-2 text-sm text-[var(--text-error)] border-b border-[var(--border)] hover:border-[var(--border-error)] transition-colors py-2"
-              style={{ fontSize: '14px' }}
+              className="flex min-h-11 w-full items-center gap-2 border-b border-[var(--border)] py-2 text-left text-sm text-[var(--error)] transition-colors hover:border-[var(--error)]"
             >
               <LogOut size={16} />
               Déconnexion

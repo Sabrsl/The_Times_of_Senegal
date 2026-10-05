@@ -4,8 +4,9 @@ import { ArticleCard } from '@/components/ArticleCard'
 import { getArticlesByCategory } from '@/lib/supabase/articles'
 import { createPublicClient } from '@/lib/supabase/public'
 import { notFound } from 'next/navigation'
+import { articlesCache, categoriesCache, cachedQuery, generateCacheKey } from '@/lib/supabase/cache'
 
-export const revalidate = 0
+export const revalidate = 300
 
 export async function generateStaticParams() {
   const supabase = createPublicClient()
@@ -20,15 +21,20 @@ export async function generateStaticParams() {
 }
 
 export default async function CategoryPage({ params }: { params: { slug: string } }) {
-  const articles = await getArticlesByCategory(params.slug)
+  const cacheKey = generateCacheKey('category-articles', { slug: params.slug })
+  const articles = await cachedQuery(articlesCache, cacheKey, () => getArticlesByCategory(params.slug))
 
-  // Get category details
-  const supabase = createPublicClient()
-  const { data: category } = await supabase
-    .from('categories')
-    .select('name, description')
-    .eq('slug', params.slug)
-    .single()
+  // Get category details with cache
+  const categoryCacheKey = generateCacheKey('category', { slug: params.slug })
+  const category = await cachedQuery(categoriesCache, categoryCacheKey, async () => {
+    const supabase = createPublicClient()
+    const { data } = await supabase
+      .from('categories')
+      .select('name, description')
+      .eq('slug', params.slug)
+      .single()
+    return data
+  })
 
   if (!category) {
     notFound()

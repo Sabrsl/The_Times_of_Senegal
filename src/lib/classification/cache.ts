@@ -45,6 +45,10 @@ class MemoryCache<T> {
     this.cache.clear()
   }
 
+  delete(key: string): void {
+    this.cache.delete(key)
+  }
+
   // Clean expired entries (call periodically)
   cleanup(): void {
     const now = Date.now()
@@ -58,16 +62,16 @@ class MemoryCache<T> {
 
 /**
  * Cache for Supabase entities (people, organizations, places, events, tags, dossiers, aliases)
- * TTL: 10 minutes by default
+ * TTL: 30 minutes for news site (invalidated on changes)
  */
-export const entitiesCache = new MemoryCache<any>(10)
+export const entitiesCache = new MemoryCache<any>(30)
 
 /**
  * Cache for classification analysis results
  * Key: classification:{article_id}:{content_hash}
- * TTL: 1 hour (results are valid as long as content doesn't change)
+ * TTL: 2 hours (results are valid as long as content doesn't change)
  */
-export const analysisCache = new MemoryCache<AnalysisCacheEntry>(60)
+export const analysisCache = new MemoryCache<AnalysisCacheEntry>(120)
 
 /**
  * Generate content hash for article
@@ -153,7 +157,7 @@ export function clearEntitiesCache(): void {
  */
 export function clearEntityTypeCache(type: string): void {
   const cacheKey = `entities:${type}`
-  entitiesCache.set(cacheKey, null) // Force cache miss
+  entitiesCache.delete(cacheKey) // Remove the key entirely
 }
 
 /**

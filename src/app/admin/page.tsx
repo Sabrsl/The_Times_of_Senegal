@@ -32,6 +32,11 @@ interface Stats {
   sources: number
 }
 
+// Simple in-memory cache for dashboard stats (2 minutes TTL)
+let dashboardStatsCache: Stats | null = null
+let dashboardStatsCacheTime: number = 0
+const DASHBOARD_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
+
 interface RecentActivity {
   id: string
   action: string
@@ -64,6 +69,32 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
+      // Check cache first
+      const now = Date.now()
+      if (dashboardStatsCache && (now - dashboardStatsCacheTime) < DASHBOARD_CACHE_TTL) {
+        setStats(dashboardStatsCache)
+        // Load recent activity in background
+        const { data: activityData } = await supabase
+          .from('audit_logs')
+          .select('*, profiles(email)')
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (activityData) {
+          setRecentActivity(
+            activityData.map((log: any) => ({
+              id: log.id,
+              action: log.action,
+              entity_type: log.entity_type,
+              entity_id: log.entity_id,
+              created_at: log.created_at,
+              user_email: log.profiles?.email,
+            }))
+          )
+        }
+        return
+      }
+
       // Load stats
       const [
         { count: articlesCount },
@@ -89,7 +120,7 @@ export default function AdminDashboard() {
         supabase.from('sources').select('*', { count: 'exact', head: true }),
       ])
 
-      setStats({
+      const newStats = {
         articles: articlesCount || 0,
         published: publishedCount || 0,
         drafts: draftsCount || 0,
@@ -100,7 +131,13 @@ export default function AdminDashboard() {
         places: placesCount || 0,
         events: eventsCount || 0,
         sources: sourcesCount || 0,
-      })
+      }
+
+      // Update cache
+      dashboardStatsCache = newStats
+      dashboardStatsCacheTime = now
+
+      setStats(newStats)
 
       // Load recent activity
       const { data: activityData } = await supabase
